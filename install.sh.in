@@ -1,0 +1,40 @@
+#!/bin/bash
+# Copyright (c) 2026 keimag-dev. MIT. Disposable root installer only.
+set -euo pipefail
+umask 022
+ulimit -c 0
+if [ "$(uname -m)" != "aarch64" ]; then
+    printf '%s\n' 'This Egg needs a native Linux ARM64 installer.' >&2
+    exit 1
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends python3 ca-certificates
+fi
+if [ -L /mnt/server/.pelican ]; then
+    printf '%s\n' 'Refusing symlink helper directory.' >&2
+    exit 1
+fi
+mkdir -p /mnt/server/.pelican
+for helper in installer.py runtime.py; do
+    target="/mnt/server/.pelican/$helper"
+    if [ -L "$target" ] || { [ -e "$target" ] && [ ! -f "$target" ]; }; then
+        printf '%s\n' 'Refusing non-regular helper destination.' >&2
+        exit 1
+    fi
+done
+cd /
+# Bootstrap source stays outside the user-writable server volume.
+work=$(mktemp -d /tmp/pelican-bootstrap.XXXXXX)
+trap 'rm -rf -- "$work"' EXIT
+cat > "$work/installer.py" <<'__PELICAN_INSTALLER_PY__'
+@@INSTALLER_PY@@__PELICAN_INSTALLER_PY__
+cat > "$work/runtime.py" <<'__PELICAN_RUNTIME_PY__'
+@@RUNTIME_PY@@__PELICAN_RUNTIME_PY__
+chmod 644 "$work/installer.py" "$work/runtime.py"
+cp -- "$work/installer.py" "$work/published-installer.py"
+mv -fT -- "$work/published-installer.py" /mnt/server/.pelican/installer.py
+mv -fT -- "$work/runtime.py" /mnt/server/.pelican/runtime.py
+# Isolate imports/environment too; only this private staged source runs as root.
+python3 -I "$work/installer.py"
