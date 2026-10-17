@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import pathlib
 import tempfile
 import unittest
@@ -12,6 +13,49 @@ if spec.loader and (ROOT / 'runtime.py').exists():
 
 
 class ConfigTests(unittest.TestCase):
+    def test_v33_does_not_inject_obsolete_control_panel_property(self):
+        fixture = json.loads((ROOT / 'tests/fixtures/v3.3-b18-property-names.json').read_text())
+        self.assertNotIn('ControlPanelEnabled', fixture['property_names'])
+        with tempfile.TemporaryDirectory() as d:
+            path = pathlib.Path(d) / 'serverconfig.xml'
+            stock = ET.Element('ServerSettings')
+            for name in fixture['property_names']:
+                ET.SubElement(stock, 'property', name=name, value='')
+            ET.ElementTree(stock).write(path, encoding='utf-8')
+            runtime.configure(path, {})
+            values = {x.get('name'): x.get('value') for x in ET.parse(path).getroot()}
+            self.assertNotIn('ControlPanelEnabled', values)
+            self.assertEqual(values['WebDashboardEnabled'], 'false')
+            self.assertEqual(values['TelnetEnabled'], 'true')
+            self.assertEqual(values['TelnetPassword'], '')
+
+    def test_existing_legacy_control_panel_is_disabled_without_losing_custom_xml(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = pathlib.Path(d) / 'serverconfig.xml'
+            path.write_text('<ServerSettings><!--keep--><property name="ControlPanelEnabled" value="true"/><property name="SandboxCode" value="CUSTOM"/></ServerSettings>')
+            runtime.configure(path, {'USER_XML_MODE': 'user'})
+            values = {x.get('name'): x.get('value') for x in ET.parse(path).getroot()}
+            self.assertEqual(values['ControlPanelEnabled'], 'false')
+            self.assertEqual(values['SandboxCode'], 'CUSTOM')
+            self.assertIn('<!--keep-->', path.read_text())
+
+    def test_user_data_is_a_cli_option_not_an_injected_v33_xml_property(self):
+        fixture = json.loads((ROOT / 'tests/fixtures/v3.3-b18-property-names.json').read_text())
+        with tempfile.TemporaryDirectory() as d:
+            path = pathlib.Path(d) / 'serverconfig.xml'
+            stock = ET.Element('ServerSettings')
+            for name in fixture['property_names']:
+                ET.SubElement(stock, 'property', name=name, value='')
+            ET.ElementTree(stock).write(path, encoding='utf-8')
+            runtime.configure(path, {})
+            names = {x.get('name') for x in ET.parse(path).getroot()}
+            self.assertNotIn('UserDataFolder', names)
+            self.assertEqual(names, set(fixture['property_names']))
+            command = runtime.game_command(pathlib.Path(d))
+            self.assertIn('-UserDataFolder=' + str(pathlib.Path(d) / 'UserData'), command)
+            self.assertIn('-configfile=' + str(path), command)
+            self.assertIn('-dedicated', command)
+
     def test_managed_merge_preserves_custom_values_and_escapes(self):
         self.assertTrue(hasattr(runtime, 'configure'), 'managed XML configurator is not implemented')
         with tempfile.TemporaryDirectory() as d:

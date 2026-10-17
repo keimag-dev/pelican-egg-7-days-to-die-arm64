@@ -222,7 +222,8 @@ def game_command(root):
     root = Path(root)
     return ['box64', str(root / 'game' / '7DaysToDieServer.x86_64'),
             '-quit', '-batchmode', '-nographics', '-dedicated',
-            '-configfile=' + str(root / 'serverconfig.xml'), '-logfile', '/dev/stdout']
+            '-configfile=' + str(root / 'serverconfig.xml'),
+            '-UserDataFolder=' + str(root / 'UserData'), '-logfile', '/dev/stdout']
 
 
 MANAGED = {
@@ -239,9 +240,9 @@ MANAGED = {
 }
 SAFETY = {
     'TelnetEnabled': 'true', 'TelnetPort': '8081', 'TelnetPassword': '',
-    'WebDashboardEnabled': 'false', 'ControlPanelEnabled': 'false',
+    'WebDashboardEnabled': 'false',
     'TerminalWindowEnabled': 'false', 'EACEnabled': 'false',
-    'ServerAllowCrossplay': 'false', 'UserDataFolder': '/home/container/UserData',
+    'ServerAllowCrossplay': 'false',
 }
 
 
@@ -288,6 +289,9 @@ def configure(path, env):
     if len(props) != len(root.findall('property')):
         raise ValueError('Duplicate XML property names')
     values.update(SAFETY)
+    # Older schemas may expose this dashboard; do not invent it on V3.3.
+    if 'ControlPanelEnabled' in props:
+        values['ControlPanelEnabled'] = 'false'
     for name, value in values.items():
         node = props.get(name)
         if node is None:

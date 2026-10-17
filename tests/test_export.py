@@ -66,6 +66,7 @@ class ExportTests(unittest.TestCase):
             module.mkdir()
             for name in ('build_egg.py', 'install.sh.in', 'installer.py', 'runtime.py', 'LICENSE'):
                 shutil.copyfile(ROOT / name, module / name)
+            shutil.copytree(ROOT / 'assets', module / 'assets')
             result = subprocess.run([sys.executable, str(module / 'build_egg.py'), '--update-url', url],
                                     cwd=tmp, capture_output=True, text=True, timeout=20)
             self.assertEqual(result.returncode, 0, result.stderr)

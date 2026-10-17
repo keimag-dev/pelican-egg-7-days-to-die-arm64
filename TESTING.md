@@ -1,5 +1,9 @@
 # Verification and TDD evidence
 
+## Final standalone ARM64 verification
+
+The final icon-inclusive source passes **58/58 tests on native Linux ARM64** and **55 passed / 3 platform skips on Windows**. Real V3.3.0(b18) boot, STDIN console, save/normal stop, same-world restart, SIGTERM and stopped-game reinstall preservation/post-reinstall boot all passed. See [INTEGRATION.md](INTEGRATION.md) for exact payload hashes, the discovered configuration compatibility fixes and explicit limitations. Older implementation notes below are retained as provenance, not the current live-QA status.
+
 ## Local result
 
 On the implementation host, **Windows / Python 3.14.7**, the final executed command was:
