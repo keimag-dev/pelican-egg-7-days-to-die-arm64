@@ -76,9 +76,13 @@ class ExportTests(unittest.TestCase):
             self.assertFalse((pathlib.Path(tmp) / 'egg-7-days-to-die-arm64.json').exists())
 
     def test_generated_files_match_sources(self):
-        egg = build.make_egg()
+        committed = json.loads((ROOT / 'egg-7-days-to-die-arm64.json').read_text(encoding='utf-8'))
+        # A published snapshot intentionally has an explicit URL, unlike the
+        # generic builder default. Publication guard validates the exact repo URL;
+        # this check still compares every generated field and embedded source.
+        egg = build.make_egg(update_url=committed['meta']['update_url'])
         self.assertEqual((ROOT / 'install.sh').read_text(encoding='utf-8'), egg['scripts']['installation']['script'])
-        self.assertEqual(json.loads((ROOT / 'egg-7-days-to-die-arm64.json').read_text(encoding='utf-8')), egg)
+        self.assertEqual(committed, egg)
 
 if __name__ == '__main__':
     unittest.main()
